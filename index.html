@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Gümrük – Hızlı Erişim Paneli v2.8 (Güvenli Sürüm)</title>
+    <title>Gümrük – Hızlı Erişim Paneli v2.9</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -386,8 +386,7 @@
         let o = document.getElementById('lOzluk').value;
         let s = document.getElementById('lSifre').value;
 
-        // --- SİLİNEMEZ KURUCU ANAHTARI (Veritabanından bağımsız çalışır) ---
-        // Özlük numarasına 999, Şifreye admin2026 yazarsan her durumda Admin olarak girersin
+        // Kurucu Anahtarı
         if(o === '999' && s === 'admin2026') {
             ['navSiralama', 'navAdmin', 'headerLogoutBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
             document.getElementById('userInfoHeader').classList.remove('hidden');
@@ -422,19 +421,27 @@
     function logout() { location.reload(); }
 
     function updateUserViews() {
-        let sirali = [...users].sort((a,b) => b.esasPuan - a.esasPuan);
+        // Personel istatistiklerinde YÖNETİCİ GİZLENDİ
+        let normalUsers = users.filter(u => u.ozluk != '1');
+        let sirali = [...normalUsers].sort((a,b) => b.esasPuan - a.esasPuan);
         let siralama = sirali.findIndex(u => u.ozluk == currentUser.ozluk) + 1;
+        
         document.getElementById('dashPuan').innerText = currentUser.esasPuan;
-        document.getElementById('dashSira').innerText = `${siralama} / ${users.length}`;
+        // Eğer yönetici kendine bakıyorsa sıra eksi çıkmasın diye kontrol eklendi
+        document.getElementById('dashSira').innerText = siralama > 0 ? (siralama + " / " + normalUsers.length) : "-";
+        
         let s = document.getElementById('dashSonuc'); s.innerText = currentUser.sonuc;
         s.style.color = currentUser.sonuc == 'Yerleşemedi' ? 'var(--error)' : 'var(--success)';
-        document.getElementById('dashToplamKisi').innerText = users.length;
+        document.getElementById('dashToplamKisi').innerText = normalUsers.length;
+        
         updateChart(); updatePrefSelect(); updatePrefTable(); buildLiveRankTable();
     }
 
     function updateChart() {
-        let y = users.filter(u => u.sonuc != 'Yerleşemedi').length;
-        let b = users.length - y;
+        // Grafikte YÖNETİCİ GİZLENDİ
+        let normalUsers = users.filter(u => u.ozluk != '1');
+        let y = normalUsers.filter(u => u.sonuc != 'Yerleşemedi').length;
+        let b = normalUsers.length - y;
         let ctx = document.getElementById('atamaChart').getContext('2d');
         if(chartInstance) chartInstance.destroy();
         chartInstance = new Chart(ctx, {
@@ -485,7 +492,9 @@
     }
 
     function buildLiveRankTable() {
-        let maxT = Math.max(...users.map(u => u.tercihler.length), 5);
+        // Canlı Sıralamada YÖNETİCİ GİZLENDİ
+        let normalUsers = users.filter(u => u.ozluk != '1');
+        let maxT = Math.max(...normalUsers.map(u => u.tercihler.length), 5);
         if(maxT > 10) maxT = 10;
         
         let th = `<tr>
@@ -501,7 +510,7 @@
         for(let i=1; i<=maxT; i++) th += `<th>TERCİH ${i}</th>`; th += `</tr>`;
         document.getElementById('rankHead').innerHTML = th;
         
-        let sorted = [...users].sort((a,b) => b.esasPuan - a.esasPuan);
+        let sorted = [...normalUsers].sort((a,b) => b.esasPuan - a.esasPuan);
         document.getElementById('rankBody').innerHTML = sorted.map(u => {
             let rowStyle = currentUser && u.ozluk == currentUser.ozluk ? 'background:rgba(0,246,210,0.15); font-weight:bold;' : '';
             let row = `<tr style="${rowStyle}">
@@ -521,9 +530,11 @@
 
     function runAtama(silent = false) {
         if(!units.length) return;
-        let sirali = [...users].sort((a,b) => b.esasPuan - a.esasPuan);
+        // Atama algoritmasından YÖNETİCİ ÇIKARILDI
+        let sirali = [...users].filter(u => u.ozluk != '1').sort((a,b) => b.esasPuan - a.esasPuan);
         units.forEach(u => u.kalan = u.kont);
-        sirali.forEach(u => u.sonuc = "Yerleşemedi");
+        users.forEach(u => u.sonuc = (u.ozluk == '1') ? "Yönetici" : "Yerleşemedi");
+        
         for(let u of sirali) {
             if(u.sonuc != "Yerleşemedi") continue;
             for(let t of u.tercihler) {
@@ -574,9 +585,11 @@
     function delUser(i) { users.splice(i, 1); saveData(); runAtama(true); updateAdminData(); }
 
     function exportExcel() {
-        let maxT = Math.max(...users.map(u => u.tercihler.length), 10); 
+        // Excel Çıktısından YÖNETİCİ GİZLENDİ
+        let normalUsers = users.filter(u => u.ozluk != '1');
+        let maxT = Math.max(...normalUsers.map(u => u.tercihler.length), 10); 
         if(maxT > 10) maxT = 10;
-        let data = users.map(u => {
+        let data = normalUsers.map(u => {
             let row = { 
                 "ÖZLÜK": u.ozluk, 
                 "ADI SOYADI": u.ad, 
@@ -600,16 +613,11 @@
         showToast("Excel başarıyla indirildi.");
     }
 
-    // YÖNETİCİ HESABINI KORUYAN GÜVENLİ SIFIRLAMA FONKSİYONU
     function resetSystem() { 
         if(confirm("DİKKAT: Yönetici hesabı hariç tüm veriler, personeller ve tercihler silinecek! Emin misiniz?")) { 
-            // 1 Numaralı yöneticiyi bul ve korumaya al
             let adminUser = users.find(u => u.ozluk == '1'); 
-            
-            // Sadece yöneticiyi listeye geri koy, diğer herkesi uçur
             users = adminUser ? [adminUser] : []; 
             units = []; 
-            
             saveData(); 
             logout(); 
         } 
@@ -618,7 +626,7 @@
     function loadSimulation() {
         units = [{ad:"Kayseri Gümrük", kont:2, kalan:2}, {ad:"İstanbul Havalimanı", kont:5, kalan:5}];
         users = [
-            { ozluk:"1", ad:"Sistem Yöneticisi", unvan:"Admin", gorev:"Genel Merkez", puan:999, tel:"-", sifre:"123", esDurumu:false, esOzluk:"", esUnvan:"", esPuan:0, tercihler:[], sonuc:"Yerleşemedi", esasPuan:999 },
+            { ozluk:"1", ad:"Sistem Yöneticisi", unvan:"Admin", gorev:"Genel Merkez", puan:999, tel:"-", sifre:"123", esDurumu:false, esOzluk:"", esUnvan:"", esPuan:0, tercihler:[], sonuc:"Yönetici", esasPuan:999 },
             { ozluk:"111", ad:"Ahmet Saygın", unvan:"Gümrük Memuru", gorev:"Kayseri", puan:95, tel:"05xx", sifre:"1", esDurumu:false, esOzluk:"", esUnvan:"", esPuan:0, tercihler:["Kayseri Gümrük"], sonuc:"Yerleşemedi", esasPuan:95 },
             { ozluk:"222", ad:"Ayşe Test", unvan:"Gümrük Memuru", gorev:"Ankara", puan:85, tel:"05xx", sifre:"1", esDurumu:true, esOzluk:"333", esUnvan:"Gümrük Memuru", esPuan:90, tercihler:["Kayseri Gümrük"], sonuc:"Yerleşemedi", esasPuan:90 }
         ];
