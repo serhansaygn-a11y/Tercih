@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Gümrük – Hızlı Erişim Paneli v2.9</title>
+    <title>Gümrük – Hızlı Erişim Paneli v4.3 (Kusursuz Tanrı Modu)</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -36,7 +36,7 @@
         margin:0; min-height:100vh; background:var(--bg); color:var(--text);
         display:flex; justify-content:center; padding:28px; transition: all 0.3s ease;
       }
-      .app { width:100%; max-width:1450px; backdrop-filter:blur(30px); }
+      .app { width:100%; max-width:1500px; backdrop-filter:blur(30px); }
 
       header {
         display:flex; justify-content:space-between; align-items:center; gap:20px; flex-wrap:wrap;
@@ -64,6 +64,7 @@
       .menu-btn.active { background: var(--accent); color: #000; box-shadow: var(--accent-glow); border-color: var(--accent); transform: translateX(5px); }
       .btn-danger { background: var(--error); color: #fff; border-color: var(--error); }
       .btn-danger:hover { background: #c0392b; box-shadow: 0 0 15px rgba(231, 76, 60, 0.4); }
+      .btn-success { background: var(--success); color: #000; border-color: var(--success); }
 
       .tab-content { flex:1; padding:30px; border-radius:16px; background:var(--card); border: 1px solid var(--border); overflow:hidden; }
       
@@ -88,10 +89,10 @@
 
       .table-responsive { width: 100%; overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); margin-top:15px; }
       table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 0.9rem; }
-      th, td { padding: 12px 15px; border-bottom: 1px solid var(--border); text-align: left; }
+      th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
       th { background: rgba(0, 0, 0, 0.4); color: var(--accent); font-weight: 600; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 10; }
       tr:hover { background: rgba(255, 255, 255, 0.03); }
-      .admin-input { padding: 6px; font-size: 0.85rem; border-radius: 6px; width: 100%; min-width: 90px; margin:0; }
+      .admin-input { padding: 6px; font-size: 0.85rem; border-radius: 6px; width: 100%; min-width: 65px; margin:0; }
 
       .dash-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
       .dash-card { background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
@@ -113,6 +114,13 @@
       }
 
       .hidden { display: none !important; }
+
+      /* Senkronizasyon İkonu CSS */
+      .sync-icon {
+        display: inline-block; font-size: 1.1rem; margin-left: 10px; opacity: 0; transition: opacity 0.5s;
+      }
+      .syncing { opacity: 1; animation: spin 1s linear infinite; }
+      @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body data-theme="dark">
@@ -135,7 +143,7 @@
 
       <div class="header-center">
         <a href="https://serhansaygn-a11y.github.io/gumruk-memuru/" target="_blank" class="btn-action" style="text-decoration: none; margin: 0; padding: 14px 30px; font-size: 1.15rem; display: flex; align-items: center; gap: 8px; box-shadow: var(--accent-glow);">
-            🚀 Gümrük – Hızlı Erişim Paneli
+            🚀 Gümrük – Hızlı Erişim Paneli <span id="syncIndicator" class="sync-icon">🔄</span>
         </a>
       </div>
 
@@ -144,7 +152,6 @@
             <div id="userInfoHeader" class="hidden" style="text-align:right; font-size:0.9rem; padding: 5px 15px; background:rgba(0,0,0,0.4); border-radius:8px; border:1px solid var(--border);"></div>
             <button class="btn-action btn-danger hidden" onclick="logout()" id="headerLogoutBtn" style="margin:0; padding: 8px 15px; font-size: 0.9rem; border-radius: 8px; font-weight:bold;">🚪 Çıkış Yap</button>
         </div>
-        
         <div class="right-images">
           <img src="https://upload.wikimedia.org/wikipedia/commons/6/61/G%C3%9CMR%C3%9CK_%C4%B0LK_LOGOlogo.png" alt="Gümrük Logo">
           <img src="https://upload.wikimedia.org/wikipedia/commons/b/b1/T.C._G%C3%9CMR%C3%9CKLER%C4%B0_TURKISH_CUSTOMS..png" alt="T.C. Gümrükleri">
@@ -243,7 +250,7 @@
 
         <div id="siralamaTab" class="hidden">
             <h2 style="margin-top:0; color:var(--accent);">Canlı Puan Sıralaması ve Tercihler</h2>
-            <p style="color:var(--muted); font-size:0.9rem;">Tüm veriler eş durumu hesaplamaları da dahil edilerek listelenmiştir.</p>
+            <p style="color:var(--muted); font-size:0.9rem;">Adminler bu listede yer almaz. Tüm veriler eş durumu hesaplamaları da dahil edilerek listelenmiştir.</p>
             <div class="table-responsive" style="max-height: 50vh;">
                 <table id="rankTable">
                     <thead id="rankHead"></thead>
@@ -253,21 +260,54 @@
         </div>
 
         <div id="adminTab" class="hidden">
-            <h2 style="margin-top:0; color:var(--accent);">Yönetici Paneli</h2>
+            <h2 style="margin-top:0; color:var(--accent);">Yönetici Paneli & Sistem Özeti (Tam Yetki)</h2>
+            
+            <div class="dash-cards" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 30px;">
+                <div class="dash-card"><span class="dash-card-title">Toplam Başvuru</span><span class="dash-card-value" id="aDashToplam" style="color:#3498db">-</span></div>
+                <div class="dash-card"><span class="dash-card-title">Yerleşen Personel</span><span class="dash-card-value" id="aDashAtanan" style="color:var(--success)">-</span></div>
+                <div class="dash-card"><span class="dash-card-title">Bekleyen Personel</span><span class="dash-card-value" id="aDashBekleyen" style="color:var(--error)">-</span></div>
+                <div class="dash-card"><span class="dash-card-title">Sistemdeki Boş Kontenjan</span><span class="dash-card-value" id="aDashKontenjan" style="color:var(--warning)">-</span></div>
+            </div>
+
             <div class="grid-2" style="margin-bottom: 30px;">
                 <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
                     <h3>İdare & Kontenjan</h3>
-                    <div style="display:flex; gap:10px;"><input type="text" id="manIdare" placeholder="İdare"><input type="number" id="manKont" placeholder="Kont." style="width:80px;"><button class="btn-action" style="margin:0;" onclick="addUnit()">EKLE</button></div>
-                    <div class="table-responsive" style="max-height: 150px;"><table><thead><tr><th>İdare</th><th>Kont.</th><th>Sil</th></tr></thead><tbody id="adminUnitBody"></tbody></table></div>
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="manIdare" placeholder="İdare Adı">
+                        <input type="number" id="manKont" placeholder="Kont." style="width:80px;">
+                        <button class="btn-action" style="margin:0;" onclick="addUnit()">EKLE</button>
+                    </div>
+                    <div class="table-responsive" style="max-height: 150px; margin-top:15px;">
+                        <table>
+                            <thead>
+                                <tr><th>İdare</th><th>Kont.</th><th>İşlem</th></tr>
+                            </thead>
+                            <tbody id="adminUnitBody"></tbody>
+                        </table>
+                    </div>
                 </div>
+                
                 <div style="background: rgba(46, 204, 113, 0.1); padding: 20px; border-radius: 12px; border: 1px solid var(--success);">
-                    <h3>Sistem Yönetimi</h3>
-                    <div style="display: flex; gap: 10px;"><button class="btn-action" style="flex:1; background:#3498db; color:#fff;" onclick="exportExcel()">📊 EXCEL</button><button class="btn-action" style="flex:1; background:var(--warning); color:#fff;" onclick="loadSimulation()">🧪 TEST VERİSİ</button></div>
-                    <button class="btn-action btn-danger" style="width:100%; margin-top:10px;" onclick="resetSystem()">⚠️ SİSTEMİ SIFIRLA</button>
+                    <h3>Veri Aktarımı & Sistem Yönetimi</h3>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <button class="btn-action" style="flex:1; background:#3498db; color:#fff;" onclick="exportSiralamaExcel()" title="Personelin gördüğü genel listeyi indirir">📊 SIRALAMA EXCELİ</button>
+                        <button class="btn-action btn-success" style="flex:1; color:#000;" onclick="exportAdminExcel()" title="Tüm şifreleri ve telefonları içeren admin listesini indirir">🔐 TAM YEDEK EXCELİ</button>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-action btn-danger" style="flex:2;" onclick="resetSystem()">⚠️ SİSTEMİ SIFIRLA</button>
+                        <button class="btn-action" style="flex:1; background:var(--warning); color:#fff;" onclick="loadSimulation()">🧪 TEST YÜKLE</button>
+                    </div>
                 </div>
             </div>
-            <h3>Kullanıcı Veritabanı</h3>
-            <div class="table-responsive" style="max-height: 50vh;"><table><thead><tr><th>Özlük</th><th>Ad</th><th>Puan</th><th>Telefon</th><th>Şifre</th><th style="min-width: 250px;">Tercihler</th><th>İşlem</th></tr></thead><tbody id="adminUserBody"></tbody></table></div>
+
+            <h3>Kullanıcı Veritabanı <small style="color:var(--muted); font-size:0.8rem;">(Personel bilgilerini, eş durumunu, tercihleri ve şifreleri buradan anında düzenleyebilirsiniz)</small></h3>
+            <div class="table-responsive" style="max-height: 50vh;">
+                <table>
+                    <thead id="adminUserHead">
+                        </thead>
+                    <tbody id="adminUserBody"></tbody>
+                </table>
+            </div>
         </div>
       </main>
     </div>
@@ -283,6 +323,16 @@
     let chartInstance = null;
     let isSystemReady = false; 
     const GUMRUK_UNVAN = "Gümrük Memuru";
+    
+    // YÖNETİCİLER LİSTESİ
+    const ADMIN_IDS = ['1', '2']; 
+
+    // --- KRİTİK HATA ÇÖZÜMÜ: TİP GÜVENLİ ADMİN KONTROLÜ ---
+    // Özlük numarası Tablolardan sayı(1) olarak da gelse, inputtan metin('1') olarak da gelse bu fonksiyon onu sorunsuz tanır.
+    function isSuperAdmin(ozluk) {
+        if (!ozluk) return false;
+        return ADMIN_IDS.includes(String(ozluk)) || String(ozluk) === '999';
+    }
 
     window.onload = async function() {
         showToast("Sunucu ile bağlantı kuruluyor...", "warning");
@@ -297,6 +347,46 @@
             showToast("Bağlantı hatası! Çevrimdışı moddasınız.", "error");
         }
     };
+
+    // --- ARKA PLAN SENKRONİZASYON SİSTEMİ (10 Saniyede Bir Canlı Veri Çeker) ---
+    setInterval(async () => {
+        if (!isSystemReady || !currentUser) return;
+        
+        let syncIcon = document.getElementById('syncIndicator');
+        
+        try {
+            // KLAVYE ODAĞI KONTROLÜ: Kullanıcı bir şeye tıklamış veya yazıyorsa güncellemeyi İPTAL ET
+            if (document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+                return; 
+            }
+
+            if (syncIcon) syncIcon.classList.add('syncing');
+
+            let response = await fetch(SCRIPT_URL);
+            let data = await response.json();
+            
+            if(data.users) users = data.users;
+            if(data.units) units = data.units;
+            
+            if (isSuperAdmin(currentUser.ozluk)) {
+                runAtama(true);
+                updateAdminData(); 
+            } else {
+                let foundUser = users.find(u => String(u.ozluk) === String(currentUser.ozluk));
+                if (foundUser) {
+                    currentUser = foundUser;
+                    runAtama(true);
+                    updateUserViews(); 
+                } else {
+                    logout(); 
+                }
+            }
+            if (syncIcon) setTimeout(() => syncIcon.classList.remove('syncing'), 1000);
+        } catch (e) {
+            console.log("Senkron hatası", e);
+            if (syncIcon) syncIcon.classList.remove('syncing');
+        }
+    }, 10000); 
 
     async function saveData() {
         if (!isSystemReady) return;
@@ -318,9 +408,7 @@
         }
     }
 
-    function toggleTheme() {
-      document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-    }
+    function toggleTheme() { document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
 
     function showToast(m, t = 'success') {
         const c = document.getElementById('toast-container');
@@ -338,7 +426,7 @@
         if(b) b.classList.add('active');
     }
 
-    function calcEsasPuan(u) { return u.esDurumu ? Math.max(u.puan, u.esPuan) : u.puan; }
+    function calcEsasPuan(u) { return u.esDurumu ? Math.max(parseFloat(u.puan)||0, parseFloat(u.esPuan)||0) : (parseFloat(u.puan)||0); }
 
     function register() {
         try {
@@ -348,7 +436,7 @@
             let ad = document.getElementById('rAd').value;
             let sifre = document.getElementById('rSifre').value;
 
-            if(!oz || users.find(u => u.ozluk == oz)) return showToast("Geçersiz veya kullanılmış Özlük No!", "error");
+            if(!oz || users.find(u => String(u.ozluk) === String(oz))) return showToast("Geçersiz veya kullanılmış Özlük No!", "error");
             if(!ad || !sifre) return showToast("Ad Soyad ve Şifre alanları zorunludur!", "error");
 
             let u = {
@@ -363,14 +451,10 @@
             u.esasPuan = calcEsasPuan(u);
             users.push(u); 
             
-            document.getElementById('rOzluk').value = '';
-            document.getElementById('rAd').value = '';
-            document.getElementById('rGorev').value = '';
-            document.getElementById('rPuan').value = '';
-            document.getElementById('rTel').value = '';
-            document.getElementById('rSifre').value = '';
-            document.getElementById('rEsGümrük').checked = false;
-            document.getElementById('esInput').classList.add('hidden');
+            document.getElementById('rOzluk').value = ''; document.getElementById('rAd').value = '';
+            document.getElementById('rGorev').value = ''; document.getElementById('rPuan').value = '';
+            document.getElementById('rTel').value = ''; document.getElementById('rSifre').value = '';
+            document.getElementById('rEsGümrük').checked = false; document.getElementById('esInput').classList.add('hidden');
 
             saveData();
             showToast("Kayıt başarılı! Lütfen giriş yapın.", "success");
@@ -386,31 +470,26 @@
         let o = document.getElementById('lOzluk').value;
         let s = document.getElementById('lSifre').value;
 
-        // Kurucu Anahtarı
         if(o === '999' && s === 'admin2026') {
-            ['navSiralama', 'navAdmin', 'headerLogoutBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
-            document.getElementById('userInfoHeader').classList.remove('hidden');
-            document.getElementById('userInfoHeader').innerHTML = `<b style="color:var(--error);">KURUCU HESABI</b>`;
-            showTab('adminTab', document.getElementById('navAdmin'));
-            runAtama(true); updateAdminData();
-            showToast("Kurucu girişi yapıldı!", "success");
+            currentUser = { ozluk: '999', ad: 'Kurucu', sifre: 'admin2026', unvan: 'Kurucu', tercihler: [], esasPuan: 0, sonuc: 'Yönetici' };
+            showAdminInterface("KURUCU HESABI");
             return;
         }
 
-        currentUser = users.find(u => u.ozluk == o && u.sifre == s);
+        let user = users.find(u => String(u.ozluk) === String(o) && u.sifre == s);
         
-        if(currentUser) {
-            if (currentUser.ozluk == '1') {
-                ['navSiralama', 'navAdmin', 'headerLogoutBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
-                document.getElementById('userInfoHeader').classList.remove('hidden');
-                document.getElementById('userInfoHeader').innerHTML = `<b style="color:var(--error);">YÖNETİCİ HESABI</b>`;
-                showTab('adminTab', document.getElementById('navAdmin'));
-                runAtama(true); updateAdminData();
+        if(user) {
+            currentUser = user;
+            // DÜZELTİLEN KISIM BURASI: isSuperAdmin fonksiyonu kullanıldı
+            if (isSuperAdmin(currentUser.ozluk)) {
+                showAdminInterface("YÖNETİCİ HESABI");
             } else {
+                // Normal Personel Girişi
                 ['navDashboard', 'navTercih', 'navSiralama', 'headerLogoutBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
                 document.getElementById('userInfoHeader').classList.remove('hidden');
                 document.getElementById('userInfoHeader').innerHTML = `<b style="color:var(--accent);">${currentUser.ad}</b><br><small style="color:var(--success);">${currentUser.unvan}</small>`;
-                runAtama(true); updateUserViews();
+                runAtama(true); 
+                updateUserViews();
                 showTab('dashboardTab', document.getElementById('navDashboard'));
             }
         } else {
@@ -418,29 +497,39 @@
         }
     }
 
+    function showAdminInterface(title) {
+        ['navSiralama', 'navAdmin', 'headerLogoutBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+        document.getElementById('userInfoHeader').classList.remove('hidden');
+        document.getElementById('userInfoHeader').innerHTML = `<b style="color:var(--error);">${title}</b>`;
+        
+        showTab('adminTab', document.getElementById('navAdmin'));
+        
+        runAtama(true); 
+        updateAdminData();
+        showToast("Sisteme Tam Yetki ile Giriş Yapıldı!", "success");
+    }
+
     function logout() { location.reload(); }
 
     function updateUserViews() {
-        // Personel istatistiklerinde YÖNETİCİ GİZLENDİ
-        let normalUsers = users.filter(u => u.ozluk != '1');
-        let sirali = [...normalUsers].sort((a,b) => b.esasPuan - a.esasPuan);
-        let siralama = sirali.findIndex(u => u.ozluk == currentUser.ozluk) + 1;
+        let normalUsers = users.filter(u => !isSuperAdmin(u.ozluk));
+        let sirali = [...normalUsers].sort((a,b) => (b.esasPuan || 0) - (a.esasPuan || 0));
+        let siralama = sirali.findIndex(u => String(u.ozluk) === String(currentUser.ozluk)) + 1;
         
-        document.getElementById('dashPuan').innerText = currentUser.esasPuan;
-        // Eğer yönetici kendine bakıyorsa sıra eksi çıkmasın diye kontrol eklendi
+        document.getElementById('dashPuan').innerText = currentUser.esasPuan || 0;
         document.getElementById('dashSira').innerText = siralama > 0 ? (siralama + " / " + normalUsers.length) : "-";
         
-        let s = document.getElementById('dashSonuc'); s.innerText = currentUser.sonuc;
-        s.style.color = currentUser.sonuc == 'Yerleşemedi' ? 'var(--error)' : 'var(--success)';
+        let s = document.getElementById('dashSonuc'); 
+        s.innerText = currentUser.sonuc || 'Yerleşemedi';
+        s.style.color = ((currentUser.sonuc || 'Yerleşemedi') == 'Yerleşemedi') ? 'var(--error)' : 'var(--success)';
         document.getElementById('dashToplamKisi').innerText = normalUsers.length;
         
         updateChart(); updatePrefSelect(); updatePrefTable(); buildLiveRankTable();
     }
 
     function updateChart() {
-        // Grafikte YÖNETİCİ GİZLENDİ
-        let normalUsers = users.filter(u => u.ozluk != '1');
-        let y = normalUsers.filter(u => u.sonuc != 'Yerleşemedi').length;
+        let normalUsers = users.filter(u => !isSuperAdmin(u.ozluk));
+        let y = normalUsers.filter(u => (u.sonuc || 'Yerleşemedi') != 'Yerleşemedi').length;
         let b = normalUsers.length - y;
         let ctx = document.getElementById('atamaChart').getContext('2d');
         if(chartInstance) chartInstance.destroy();
@@ -453,38 +542,32 @@
     function updatePrefSelect() { document.getElementById('iSelect').innerHTML = units.map(u => `<option value="${u.ad}">${u.ad} (Boş Kontenjan: ${u.kalan})</option>`).join(''); }
 
     function addPref() {
+        if (!currentUser.tercihler) currentUser.tercihler = [];
         if(currentUser.tercihler.length >= 10) return showToast("Sınır 10 Tercihtir!", "error");
         let v = document.getElementById('iSelect').value;
         if(currentUser.tercihler.includes(v)) return;
         currentUser.tercihler.push(v); saveData(); runAtama(true); updateUserViews();
     }
 
-    function removePref(i) { 
-        currentUser.tercihler.splice(i, 1); 
-        saveData(); runAtama(true); updateUserViews(); 
-    }
+    function removePref(i) { if(currentUser.tercihler) currentUser.tercihler.splice(i, 1); saveData(); runAtama(true); updateUserViews(); }
 
     function movePref(index, direction) {
+        if(!currentUser.tercihler) return;
         let arr = currentUser.tercihler;
         if (index + direction < 0 || index + direction >= arr.length) return; 
-        
-        let temp = arr[index];
-        arr[index] = arr[index + direction];
-        arr[index + direction] = temp;
-        
-        saveData();
-        runAtama(true);
-        updateUserViews();
+        let temp = arr[index]; arr[index] = arr[index + direction]; arr[index + direction] = temp;
+        saveData(); runAtama(true); updateUserViews();
     }
 
     function updatePrefTable() {
-        document.getElementById('prefBody').innerHTML = currentUser.tercihler.map((t, i) => `
+        let prefs = currentUser.tercihler || [];
+        document.getElementById('prefBody').innerHTML = prefs.map((t, i) => `
             <tr>
                 <td style="font-weight:bold; color:var(--accent);">${i+1}</td>
                 <td style="font-weight:600;">${t}</td>
                 <td style="display: flex; gap: 5px;">
                     <button onclick="movePref(${i}, -1)" title="Yukarı Taşı" class="btn-action" style="padding:6px 10px; margin:0; background:#3498db; color:#fff;" ${i === 0 ? 'disabled' : ''}>⬆️</button>
-                    <button onclick="movePref(${i}, 1)" title="Aşağı Taşı" class="btn-action" style="padding:6px 10px; margin:0; background:#3498db; color:#fff;" ${i === currentUser.tercihler.length - 1 ? 'disabled' : ''}>⬇️</button>
+                    <button onclick="movePref(${i}, 1)" title="Aşağı Taşı" class="btn-action" style="padding:6px 10px; margin:0; background:#3498db; color:#fff;" ${i === prefs.length - 1 ? 'disabled' : ''}>⬇️</button>
                     <button onclick="removePref(${i})" title="Sil" class="btn-action btn-danger" style="padding:6px 10px; margin:0;">SİL</button>
                 </td>
             </tr>
@@ -492,141 +575,174 @@
     }
 
     function buildLiveRankTable() {
-        // Canlı Sıralamada YÖNETİCİ GİZLENDİ
-        let normalUsers = users.filter(u => u.ozluk != '1');
-        let maxT = Math.max(...normalUsers.map(u => u.tercihler.length), 5);
+        let normalUsers = users.filter(u => !isSuperAdmin(u.ozluk));
+        let maxT = Math.max(...normalUsers.map(u => (u.tercihler || []).length), 5); 
+        if(maxT === -Infinity || maxT < 5) maxT = 5; 
         if(maxT > 10) maxT = 10;
         
         let th = `<tr>
-            <th>ÖZLÜK</th>
-            <th>AD SOYAD</th>
-            <th>KENDİ PUANI</th>
-            <th>EŞ DURUMU</th>
-            <th>EŞ ÖZLÜK</th>
-            <th>EŞ ÜNVANI</th>
-            <th>EŞ PUANI</th>
-            <th>ESAS PUAN</th>
-            <th>SONUÇ</th>`;
+            <th>ÖZLÜK</th><th>AD SOYAD</th><th>KENDİ PUANI</th><th>EŞ DURUMU</th><th>EŞ ÖZLÜK</th><th>EŞ ÜNVANI</th><th>EŞ PUANI</th><th>ESAS PUAN</th><th>SONUÇ</th>`;
         for(let i=1; i<=maxT; i++) th += `<th>TERCİH ${i}</th>`; th += `</tr>`;
         document.getElementById('rankHead').innerHTML = th;
         
-        let sorted = [...normalUsers].sort((a,b) => b.esasPuan - a.esasPuan);
+        let sorted = [...normalUsers].sort((a,b) => (b.esasPuan || 0) - (a.esasPuan || 0));
         document.getElementById('rankBody').innerHTML = sorted.map(u => {
-            let rowStyle = currentUser && u.ozluk == currentUser.ozluk ? 'background:rgba(0,246,210,0.15); font-weight:bold;' : '';
+            let rowStyle = currentUser && String(u.ozluk) === String(currentUser.ozluk) ? 'background:rgba(0,246,210,0.15); font-weight:bold;' : '';
             let row = `<tr style="${rowStyle}">
-                <td>${u.ozluk}</td>
-                <td>${u.ad}</td>
-                <td>${u.puan}</td>
+                <td>${u.ozluk}</td><td>${u.ad || ''}</td><td>${u.puan || 0}</td>
                 <td style="color:${u.esDurumu ? 'var(--accent)' : 'var(--muted)'}; font-weight:bold;">${u.esDurumu ? 'VAR' : 'YOK'}</td>
-                <td>${u.esDurumu ? (u.esOzluk || '-') : '-'}</td>
-                <td>${u.esDurumu ? (u.esUnvan || '-') : '-'}</td>
-                <td>${u.esDurumu ? u.esPuan : '-'}</td>
-                <td style="color:var(--accent); font-weight:bold; font-size:1.1em;">${u.esasPuan}</td>
-                <td style="font-weight:bold; color:${u.sonuc == 'Yerleşemedi' ? 'var(--error)' : 'var(--success)'};">${u.sonuc}</td>`;
-            for(let i=0; i<maxT; i++) row += `<td><span style="font-size:0.85rem; background:rgba(255,255,255,0.05); padding:4px 8px; border-radius:4px; white-space:nowrap;">${u.tercihler[i] || '-'}</span></td>`;
+                <td>${u.esDurumu ? (u.esOzluk || '-') : '-'}</td><td>${u.esDurumu ? (u.esUnvan || '-') : '-'}</td><td>${u.esDurumu ? (u.esPuan || 0) : '-'}</td>
+                <td style="color:var(--accent); font-weight:bold; font-size:1.1em;">${u.esasPuan || 0}</td>
+                <td style="font-weight:bold; color:${(u.sonuc || 'Yerleşemedi') == 'Yerleşemedi' ? 'var(--error)' : 'var(--success)'};">${u.sonuc || 'Yerleşemedi'}</td>`;
+            for(let i=0; i<maxT; i++) row += `<td><span style="font-size:0.85rem; background:rgba(255,255,255,0.05); padding:4px 8px; border-radius:4px; white-space:nowrap;">${(u.tercihler || [])[i] || '-'}</span></td>`;
             return row + `</tr>`;
         }).join('');
     }
 
     function runAtama(silent = false) {
         if(!units.length) return;
-        // Atama algoritmasından YÖNETİCİ ÇIKARILDI
-        let sirali = [...users].filter(u => u.ozluk != '1').sort((a,b) => b.esasPuan - a.esasPuan);
+        let sirali = [...users].filter(u => !isSuperAdmin(u.ozluk)).sort((a,b) => (b.esasPuan || 0) - (a.esasPuan || 0));
         units.forEach(u => u.kalan = u.kont);
-        users.forEach(u => u.sonuc = (u.ozluk == '1') ? "Yönetici" : "Yerleşemedi");
+        users.forEach(u => u.sonuc = isSuperAdmin(u.ozluk) ? "Yönetici" : "Yerleşemedi");
         
         for(let u of sirali) {
             if(u.sonuc != "Yerleşemedi") continue;
-            for(let t of u.tercihler) {
+            for(let t of (u.tercihler || [])) {
                 let idare = units.find(unit => unit.ad == t);
                 if(!idare) continue;
                 let needed = 1; let es = null;
                 if(u.esDurumu && u.esOzluk && u.esUnvan == GUMRUK_UNVAN) {
-                    es = users.find(x => x.ozluk == u.esOzluk);
+                    es = users.find(x => String(x.ozluk) === String(u.esOzluk));
                     if(es && es.sonuc == "Yerleşemedi") needed = 2;
                 }
-                if(idare.kalan >= needed) {
-                    idare.kalan -= needed; u.sonuc = idare.ad;
-                    if(es) es.sonuc = idare.ad; break;
-                }
+                if(idare.kalan >= needed) { idare.kalan -= needed; u.sonuc = idare.ad; if(es) es.sonuc = idare.ad; break; }
             }
         }
     }
 
     function addUnit() {
-        let ad = document.getElementById('manIdare').value;
-        let kont = parseInt(document.getElementById('manKont').value);
-        if(!ad || isNaN(kont)) return;
-        units.push({ ad, kont, kalan: kont });
+        let ad = document.getElementById('manIdare').value; let kont = parseInt(document.getElementById('manKont').value);
+        if(!ad || isNaN(kont)) return; units.push({ ad, kont, kalan: kont });
         saveData(); runAtama(true); updateAdminData();
     }
 
     function delUnit(i) { units.splice(i, 1); saveData(); runAtama(true); updateAdminData(); }
+    function updUnit(i, f, v) { units[i][f] = v; saveData(); runAtama(true); updateAdminData(); }
 
+    // --- ADMİN DASHBOARD VE KULLANICI VERİTABANI GÜNCELLEME ---
     function updateAdminData() {
-        document.getElementById('adminUnitBody').innerHTML = units.map((u, i) => `<tr><td>${u.ad}</td><td>${u.kont}</td><td><button onclick="delUnit(${i})" class="btn-action btn-danger" style="padding:4px 10px;">X</button></td></tr>`).join('');
-        document.getElementById('adminUserBody').innerHTML = users.map((u, i) => `<tr><td>${u.ozluk}</td><td><input class="admin-input" value="${u.ad}" onchange="updUser(${i},'ad',this.value)"></td><td><input class="admin-input" value="${u.puan}" onchange="updUser(${i},'puan',this.value)" style="width:70px;"></td><td><input class="admin-input" value="${u.tel}" onchange="updUser(${i},'tel',this.value)"></td><td><input class="admin-input" value="${u.sifre}" onchange="updUser(${i},'sifre',this.value)"></td><td><input class="admin-input" placeholder="T1, T2..." value="${u.tercihler.join(', ')}" onchange="updPrefs(${i},this.value)" style="border:1px solid #3498db; background:rgba(52, 152, 219, 0.1);"></td><td><button onclick="delUser(${i})" class="btn-action btn-danger" style="padding:5px 10px;">SİL</button></td></tr>`).join('');
+        let normalUsers = users.filter(u => !isSuperAdmin(u.ozluk));
+        let yerlesenSayisi = normalUsers.filter(u => (u.sonuc || 'Yerleşemedi') !== 'Yerleşemedi').length;
+        let bosKontenjanSayisi = units.reduce((acc, u) => acc + (u.kalan || 0), 0);
+        
+        document.getElementById('aDashToplam').innerText = normalUsers.length;
+        document.getElementById('aDashAtanan').innerText = yerlesenSayisi;
+        document.getElementById('aDashBekleyen').innerText = normalUsers.length - yerlesenSayisi;
+        document.getElementById('aDashKontenjan').innerText = bosKontenjanSayisi;
+
+        document.getElementById('adminUnitBody').innerHTML = units.map((u, i) => `<tr><td>${u.ad}</td><td><input type="number" class="admin-input" value="${u.kont}" onchange="updUnit(${i}, 'kont', parseInt(this.value)||0)" style="width:70px;"></td><td><button onclick="delUnit(${i})" class="btn-action btn-danger" style="padding:4px 10px;">X</button></td></tr>`).join('');
+        
+        let th = `<tr>
+            <th>ÖZLÜK</th><th>AD SOYAD</th><th>KENDİ PUANI</th><th>EŞ DURUMU</th><th>EŞ ÖZLÜK</th><th>EŞ ÜNVANI</th><th>EŞ PUANI</th><th>ESAS PUAN</th><th>SONUÇ</th><th style="min-width:180px;">TERCİHLER</th><th>TELEFON</th><th>ŞİFRE</th><th>İŞLEM</th>
+        </tr>`;
+        document.getElementById('adminUserHead').innerHTML = th;
+
+        document.getElementById('adminUserBody').innerHTML = users.map((u, i) => {
+            let isAdmin = isSuperAdmin(u.ozluk);
+            let rowStyle = isAdmin ? 'background: rgba(231, 76, 60, 0.15);' : '';
+            let roleLabel = isAdmin ? `<br><small style="color:var(--error); font-weight:bold;">[YÖNETİCİ]</small>` : '';
+
+            return `<tr style="${rowStyle}">
+                <td><b>${u.ozluk}</b>${roleLabel}</td>
+                <td><input class="admin-input" value="${u.ad || ''}" onchange="updUser(${i},'ad',this.value)" style="width:120px;"></td>
+                <td><input class="admin-input" type="number" step="0.01" value="${u.puan || 0}" onchange="updUser(${i},'puan',parseFloat(this.value)||0)" style="width:70px;" ${isAdmin ? 'disabled' : ''}></td>
+                
+                <td style="text-align:center;"><input type="checkbox" style="width:20px; height:20px; cursor:pointer;" ${u.esDurumu ? 'checked' : ''} onchange="updUser(${i},'esDurumu',this.checked)" ${isAdmin ? 'disabled' : ''}></td>
+                <td><input class="admin-input" value="${u.esOzluk || ''}" onchange="updUser(${i},'esOzluk',this.value)" style="width:70px;" ${isAdmin ? 'disabled' : ''}></td>
+                <td>
+                    <select class="admin-input" onchange="updUser(${i},'esUnvan',this.value)" ${isAdmin ? 'disabled' : ''} style="width:110px;">
+                        <option value="" ${u.esUnvan==''?'selected':''}>-</option>
+                        <option value="Gümrük Memuru" ${u.esUnvan=='Gümrük Memuru'?'selected':''}>G. Memuru</option>
+                        <option value="Muayene Memuru" ${u.esUnvan=='Muayene Memuru'?'selected':''}>Muayene M.</option>
+                        <option value="Muhafaza Memuru" ${u.esUnvan=='Muhafaza Memuru'?'selected':''}>Muhafaza M.</option>
+                        <option value="Müdür" ${u.esUnvan=='Müdür'?'selected':''}>Müdür</option>
+                        <option value="Diğer" ${u.esUnvan=='Diğer'?'selected':''}>Diğer</option>
+                    </select>
+                </td>
+                <td><input class="admin-input" type="number" step="0.01" value="${u.esPuan || 0}" onchange="updUser(${i},'esPuan',parseFloat(this.value)||0)" style="width:70px;" ${isAdmin ? 'disabled' : ''}></td>
+                
+                <td style="color:var(--accent); font-weight:bold;">${isAdmin ? '-' : (u.esasPuan || 0)}</td>
+                <td style="font-weight:bold; color:${(u.sonuc || 'Yerleşemedi') == 'Yerleşemedi' ? 'var(--error)' : (isAdmin ? 'var(--muted)' : 'var(--success)')};">${u.sonuc || 'Yerleşemedi'}</td>
+                
+                <td><input class="admin-input" placeholder="Virgülle ayırın" value="${isAdmin ? '' : (u.tercihler || []).join(', ')}" onchange="updPrefs(${i},this.value)" style="border:1px solid #3498db; background:rgba(52, 152, 219, 0.1);" ${isAdmin ? 'disabled' : ''}></td>
+                <td><input class="admin-input" value="${u.tel || ''}" onchange="updUser(${i},'tel',this.value)" style="width:100px;"></td>
+                <td><input class="admin-input" value="${u.sifre || ''}" onchange="updUser(${i},'sifre',this.value)" style="width:70px;"></td>
+                <td><button onclick="delUser(${i})" class="btn-action btn-danger" style="padding:5px 10px;">SİL</button></td>
+            </tr>`;
+        }).join('');
+        
         buildLiveRankTable();
     }
 
-    function updUser(i, f, v) { users[i][f] = v; if(f=='puan') users[i].esasPuan = calcEsasPuan(users[i]); saveData(); runAtama(true); updateAdminData(); }
+    function updUser(i, f, v) { 
+        users[i][f] = v; 
+        users[i].esasPuan = calcEsasPuan(users[i]); 
+        saveData(); runAtama(true); updateAdminData(); 
+    }
     
     function updPrefs(i, v) { 
         let prefArray = v.split(',').map(t => t.trim()).filter(t => t!=''); 
-        if(prefArray.length > 10) {
-            showToast("En fazla 10 tercih girilebilir!", "error");
-            updateAdminData(); // Geri al
-            return;
-        }
-        users[i].tercihler = prefArray;
-        saveData(); runAtama(true); updateAdminData(); 
+        if(prefArray.length > 10) { showToast("En fazla 10 tercih girilebilir!", "error"); updateAdminData(); return; }
+        users[i].tercihler = prefArray; saveData(); runAtama(true); updateAdminData(); 
     }
     
     function delUser(i) { users.splice(i, 1); saveData(); runAtama(true); updateAdminData(); }
 
-    function exportExcel() {
-        // Excel Çıktısından YÖNETİCİ GİZLENDİ
-        let normalUsers = users.filter(u => u.ozluk != '1');
-        let maxT = Math.max(...normalUsers.map(u => u.tercihler.length), 10); 
-        if(maxT > 10) maxT = 10;
+    function exportSiralamaExcel() {
+        let normalUsers = users.filter(u => !isSuperAdmin(u.ozluk));
+        let maxT = Math.max(...normalUsers.map(u => (u.tercihler || []).length), 10); if(maxT === -Infinity || maxT < 10) maxT = 10;
         let data = normalUsers.map(u => {
             let row = { 
-                "ÖZLÜK": u.ozluk, 
-                "ADI SOYADI": u.ad, 
-                "ÜNVAN": u.unvan, 
-                "GÖREV YERİ": u.gorev, 
-                "TELEFON (GİZLİ)": u.tel, 
-                "KENDİ PUANI": u.puan,
-                "EŞ DURUMU": u.esDurumu ? "VAR" : "YOK",
-                "EŞ ÖZLÜK": u.esDurumu ? u.esOzluk : "-",
-                "EŞ ÜNVANI": u.esDurumu ? u.esUnvan : "-",
-                "EŞ PUANI": u.esDurumu ? u.esPuan : "-",
-                "ATAMAYA ESAS PUAN": u.esasPuan, 
-                "ATANDIĞI YER": u.sonuc 
+                "ÖZLÜK": u.ozluk, "ADI SOYADI": u.ad, "GÖREV YERİ": u.gorev || "-", 
+                "KENDİ PUANI": u.puan || 0, "EŞ DURUMU": u.esDurumu ? "VAR" : "YOK", "EŞ ÖZLÜK": u.esDurumu ? (u.esOzluk || "-") : "-",
+                "EŞ ÜNVANI": u.esDurumu ? (u.esUnvan || "-") : "-", "EŞ PUANI": u.esDurumu ? (u.esPuan || 0) : "-",
+                "ATAMAYA ESAS PUAN": u.esasPuan || 0, "ATANDIĞI YER": u.sonuc || "Yerleşemedi"
             };
-            for(let i=0; i<maxT; i++) row[`TERCİH ${i+1}`] = u.tercihler[i] || "-";
+            for(let i=0; i<maxT; i++) row[`TERCİH ${i+1}`] = (u.tercihler || [])[i] || "-";
             return row;
         });
-        let ws = XLSX.utils.json_to_sheet(data);
-        let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Atama Sonuçları");
-        XLSX.writeFile(wb, "Gumruk_Atama_ve_Tercih_Raporu.xlsx");
-        showToast("Excel başarıyla indirildi.");
+        let ws = XLSX.utils.json_to_sheet(data); let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Sıralama Listesi");
+        XLSX.writeFile(wb, "Gumruk_Siralama_Raporu.xlsx"); showToast("Sıralama Exceli başarıyla indirildi.");
+    }
+
+    function exportAdminExcel() {
+        let maxT = Math.max(...users.map(u => (u.tercihler || []).length), 10); if(maxT === -Infinity || maxT < 10) maxT = 10;
+        let data = users.map(u => {
+            let row = { 
+                "ÖZLÜK": u.ozluk, "ADI SOYADI": u.ad || "-", "YETKİ": isSuperAdmin(u.ozluk) ? "Yönetici" : "Personel",
+                "KENDİ PUANI": u.puan || 0, "EŞ DURUMU": u.esDurumu ? "VAR" : "YOK", "EŞ ÖZLÜK": u.esDurumu ? (u.esOzluk || "-") : "-",
+                "EŞ ÜNVANI": u.esDurumu ? (u.esUnvan || "-") : "-", "EŞ PUANI": u.esDurumu ? (u.esPuan || 0) : "-",
+                "ESAS PUAN": u.esasPuan || 0, "SONUÇ": u.sonuc || "Yerleşemedi", "TELEFON": u.tel || "-", "SİSTEM ŞİFRESİ": u.sifre || "-" 
+            };
+            for(let i=0; i<maxT; i++) row[`TERCİH ${i+1}`] = (u.tercihler || [])[i] || "-";
+            return row;
+        });
+        let ws = XLSX.utils.json_to_sheet(data); let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Tam Veritabanı Yedek");
+        XLSX.writeFile(wb, "Gumruk_Admin_Tam_Yedek.xlsx"); showToast("Tam Yedek Exceli başarıyla indirildi.");
     }
 
     function resetSystem() { 
-        if(confirm("DİKKAT: Yönetici hesabı hariç tüm veriler, personeller ve tercihler silinecek! Emin misiniz?")) { 
-            let adminUser = users.find(u => u.ozluk == '1'); 
-            users = adminUser ? [adminUser] : []; 
-            units = []; 
-            saveData(); 
-            logout(); 
+        if(confirm("DİKKAT: Yönetici hesapları hariç tüm veriler, personeller ve tercihler silinecek! Emin misiniz?")) { 
+            let adminUsers = users.filter(u => isSuperAdmin(u.ozluk)); 
+            users = adminUsers; units = []; saveData(); logout(); 
         } 
     }
 
     function loadSimulation() {
         units = [{ad:"Kayseri Gümrük", kont:2, kalan:2}, {ad:"İstanbul Havalimanı", kont:5, kalan:5}];
         users = [
-            { ozluk:"1", ad:"Sistem Yöneticisi", unvan:"Admin", gorev:"Genel Merkez", puan:999, tel:"-", sifre:"123", esDurumu:false, esOzluk:"", esUnvan:"", esPuan:0, tercihler:[], sonuc:"Yönetici", esasPuan:999 },
+            { ozluk:"1", ad:"Sistem Yöneticisi 1", unvan:"Admin", gorev:"Genel Merkez", puan:999, tel:"05550001122", sifre:"123", esDurumu:false, esOzluk:"", esUnvan:"", esPuan:0, tercihler:[], sonuc:"Yönetici", esasPuan:999 },
+            { ozluk:"2", ad:"Sistem Yöneticisi 2", unvan:"Admin", gorev:"Genel Merkez", puan:999, tel:"05320001122", sifre:"123", esDurumu:false, esOzluk:"", esUnvan:"", esPuan:0, tercihler:[], sonuc:"Yönetici", esasPuan:999 },
             { ozluk:"111", ad:"Ahmet Saygın", unvan:"Gümrük Memuru", gorev:"Kayseri", puan:95, tel:"05xx", sifre:"1", esDurumu:false, esOzluk:"", esUnvan:"", esPuan:0, tercihler:["Kayseri Gümrük"], sonuc:"Yerleşemedi", esasPuan:95 },
             { ozluk:"222", ad:"Ayşe Test", unvan:"Gümrük Memuru", gorev:"Ankara", puan:85, tel:"05xx", sifre:"1", esDurumu:true, esOzluk:"333", esUnvan:"Gümrük Memuru", esPuan:90, tercihler:["Kayseri Gümrük"], sonuc:"Yerleşemedi", esasPuan:90 }
         ];
