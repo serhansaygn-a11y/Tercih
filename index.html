@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Tercih Paneli-Serhan SAYGIN</title>
+    <title>Tercih Modülü-Serhan SAYGIN</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -115,7 +115,6 @@
 
       .hidden { display: none !important; }
 
-      /* Senkronizasyon İkonu CSS */
       .sync-icon {
         display: inline-block; font-size: 1.1rem; margin-left: 10px; opacity: 0; transition: opacity 0.5s;
       }
@@ -226,6 +225,32 @@
                     <canvas id="atamaChart" style="height: 250px;"></canvas>
                 </div>
             </div>
+
+            <!-- YENİ EKLENDİ: Normal personel kendi puanını ve eş durumunu güncelleyebilsin -->
+            <div style="margin-top: 30px; background: rgba(0,0,0,0.2); padding: 25px; border-radius: 12px; border: 1px solid var(--border);">
+                <h3 style="margin-top:0; color:var(--accent);">📌 Bilgilerimi Güncelle (Puan & Eş Durumu)</h3>
+                <p style="color:var(--muted); font-size:0.9rem; margin-bottom:15px;">Kayıt olduktan sonra kendi puanınızı ve eş durum bilgilerinizi buradan güncelleyebilirsiniz.</p>
+                <div class="grid-2">
+                    <div>
+                        <label style="display:block;margin-bottom:6px;color:var(--muted);">Kendi Puanım</label>
+                        <input type="number" id="myPuan" step="0.01" style="width:100%;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:6px;color:var(--muted);">Eş Durumu</label>
+                        <label style="cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:600;">
+                            <input type="checkbox" id="myEsDurumu" onchange="toggleMyEsFields()"> 
+                            Eşim Gümrük Teşkilatında Çalışıyor
+                        </label>
+                    </div>
+                    <div id="myEsFields" class="grid-2" style="grid-column:span 2; display:none;">
+                        <div>
+                            <label style="display:block;margin-bottom:6px;color:var(--muted);">Eş Puanı</label>
+                            <input type="number" id="myEsPuan" step="0.01" style="width:100%;">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn-action" onclick="updateMyInfo()" style="width:100%; margin-top:20px;">GÜNCELLE VE SİSTEME KAYDET</button>
+            </div>
         </div>
 
         <div id="tercihTab" class="hidden">
@@ -303,8 +328,7 @@
             <h3>Kullanıcı Veritabanı <small style="color:var(--muted); font-size:0.8rem;">(Personel bilgilerini, eş durumunu, tercihleri ve şifreleri buradan anında düzenleyebilirsiniz)</small></h3>
             <div class="table-responsive" style="max-height: 50vh;">
                 <table>
-                    <thead id="adminUserHead">
-                        </thead>
+                    <thead id="adminUserHead"></thead>
                     <tbody id="adminUserBody"></tbody>
                 </table>
             </div>
@@ -314,7 +338,6 @@
   </div>
 
   <script>
-    // --- GOOGLE APPS SCRIPT BAĞLANTISI ---
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxeSIMVzWuW8GDqiqDJ49NYrWAAfCxIw1jYunbN_VtJn9zSGqIhgkPLWTa9CHnx2mngdQ/exec";
     
     let users = [];
@@ -323,12 +346,8 @@
     let chartInstance = null;
     let isSystemReady = false; 
     const GUMRUK_UNVAN = "Gümrük Memuru";
-    
-    // YÖNETİCİLER LİSTESİ
     const ADMIN_IDS = ['1', '2']; 
 
-    // --- KRİTİK HATA ÇÖZÜMÜ: TİP GÜVENLİ ADMİN KONTROLÜ ---
-    // Özlük numarası Tablolardan sayı(1) olarak da gelse, inputtan metin('1') olarak da gelse bu fonksiyon onu sorunsuz tanır.
     function isSuperAdmin(ozluk) {
         if (!ozluk) return false;
         return ADMIN_IDS.includes(String(ozluk)) || String(ozluk) === '999';
@@ -348,26 +367,16 @@
         }
     };
 
-    // --- ARKA PLAN SENKRONİZASYON SİSTEMİ (10 Saniyede Bir Canlı Veri Çeker) ---
     setInterval(async () => {
         if (!isSystemReady || !currentUser) return;
-        
         let syncIcon = document.getElementById('syncIndicator');
-        
         try {
-            // KLAVYE ODAĞI KONTROLÜ: Kullanıcı bir şeye tıklamış veya yazıyorsa güncellemeyi İPTAL ET
-            if (document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-                return; 
-            }
-
+            if (document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
             if (syncIcon) syncIcon.classList.add('syncing');
-
             let response = await fetch(SCRIPT_URL);
             let data = await response.json();
-            
             if(data.users) users = data.users;
             if(data.units) units = data.units;
-            
             if (isSuperAdmin(currentUser.ozluk)) {
                 runAtama(true);
                 updateAdminData(); 
@@ -431,14 +440,11 @@
     function register() {
         try {
             if (!isSystemReady) return showToast("Sistem yükleniyor, lütfen bekleyin...", "warning");
-
             let oz = document.getElementById('rOzluk').value;
             let ad = document.getElementById('rAd').value;
             let sifre = document.getElementById('rSifre').value;
-
             if(!oz || users.find(u => String(u.ozluk) === String(oz))) return showToast("Geçersiz veya kullanılmış Özlük No!", "error");
             if(!ad || !sifre) return showToast("Ad Soyad ve Şifre alanları zorunludur!", "error");
-
             let u = {
                 ozluk: oz, ad: ad, unvan: GUMRUK_UNVAN,
                 gorev: document.getElementById('rGorev').value || "-", puan: parseFloat(document.getElementById('rPuan').value) || 0,
@@ -447,15 +453,12 @@
                 esUnvan: document.getElementById('rEsUnvan').value || "", esPuan: parseFloat(document.getElementById('rEsPuan').value) || 0,
                 tercihler: [], sonuc: "Yerleşemedi", bolge: "1. Bölge", eAtamaTip: "Normal", yerlestirmeTuru: "Puan"
             };
-            
             u.esasPuan = calcEsasPuan(u);
             users.push(u); 
-            
             document.getElementById('rOzluk').value = ''; document.getElementById('rAd').value = '';
             document.getElementById('rGorev').value = ''; document.getElementById('rPuan').value = '';
             document.getElementById('rTel').value = ''; document.getElementById('rSifre').value = '';
             document.getElementById('rEsGümrük').checked = false; document.getElementById('esInput').classList.add('hidden');
-
             saveData();
             showToast("Kayıt başarılı! Lütfen giriş yapın.", "success");
             showTab('loginTab', document.getElementById('navLogin'));
@@ -466,25 +469,19 @@
 
     function login() {
         if (!isSystemReady) return showToast("Sistem yükleniyor, lütfen bekleyin...", "warning");
-
         let o = document.getElementById('lOzluk').value;
         let s = document.getElementById('lSifre').value;
-
         if(o === '999' && s === 'admin2026') {
             currentUser = { ozluk: '999', ad: 'Kurucu', sifre: 'admin2026', unvan: 'Kurucu', tercihler: [], esasPuan: 0, sonuc: 'Yönetici' };
             showAdminInterface("KURUCU HESABI");
             return;
         }
-
         let user = users.find(u => String(u.ozluk) === String(o) && u.sifre == s);
-        
         if(user) {
             currentUser = user;
-            // DÜZELTİLEN KISIM BURASI: isSuperAdmin fonksiyonu kullanıldı
             if (isSuperAdmin(currentUser.ozluk)) {
                 showAdminInterface("YÖNETİCİ HESABI");
             } else {
-                // Normal Personel Girişi
                 ['navDashboard', 'navTercih', 'navSiralama', 'headerLogoutBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
                 document.getElementById('userInfoHeader').classList.remove('hidden');
                 document.getElementById('userInfoHeader').innerHTML = `<b style="color:var(--accent);">${currentUser.ad}</b><br><small style="color:var(--success);">${currentUser.unvan}</small>`;
@@ -501,9 +498,7 @@
         ['navSiralama', 'navAdmin', 'headerLogoutBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
         document.getElementById('userInfoHeader').classList.remove('hidden');
         document.getElementById('userInfoHeader').innerHTML = `<b style="color:var(--error);">${title}</b>`;
-        
         showTab('adminTab', document.getElementById('navAdmin'));
-        
         runAtama(true); 
         updateAdminData();
         showToast("Sisteme Tam Yetki ile Giriş Yapıldı!", "success");
@@ -518,13 +513,36 @@
         
         document.getElementById('dashPuan').innerText = currentUser.esasPuan || 0;
         document.getElementById('dashSira').innerText = siralama > 0 ? (siralama + " / " + normalUsers.length) : "-";
-        
         let s = document.getElementById('dashSonuc'); 
         s.innerText = currentUser.sonuc || 'Yerleşemedi';
         s.style.color = ((currentUser.sonuc || 'Yerleşemedi') == 'Yerleşemedi') ? 'var(--error)' : 'var(--success)';
         document.getElementById('dashToplamKisi').innerText = normalUsers.length;
         
         updateChart(); updatePrefSelect(); updatePrefTable(); buildLiveRankTable();
+
+        // Dashboard'taki güncelleme formunu doldur
+        document.getElementById('myPuan').value = currentUser.puan || 0;
+        document.getElementById('myEsDurumu').checked = !!currentUser.esDurumu;
+        document.getElementById('myEsPuan').value = currentUser.esPuan || 0;
+        toggleMyEsFields();
+    }
+
+    // === YENİ: Normal kullanıcı kendi bilgilerini güncelleyebilsin ===
+    function toggleMyEsFields() {
+        const fields = document.getElementById('myEsFields');
+        fields.style.display = document.getElementById('myEsDurumu').checked ? 'grid' : 'none';
+    }
+
+    function updateMyInfo() {
+        if (!currentUser || isSuperAdmin(currentUser.ozluk)) return showToast("Bu işlem için yetkiniz yok!", "error");
+        currentUser.puan = parseFloat(document.getElementById('myPuan').value) || 0;
+        currentUser.esDurumu = document.getElementById('myEsDurumu').checked;
+        currentUser.esPuan = parseFloat(document.getElementById('myEsPuan').value) || 0;
+        currentUser.esasPuan = calcEsasPuan(currentUser);
+        saveData();
+        runAtama(true);
+        updateUserViews();
+        showToast("Puan ve bilgileriniz başarıyla güncellendi! 🎉", "success");
     }
 
     function updateChart() {
@@ -579,17 +597,13 @@
         let maxT = Math.max(...normalUsers.map(u => (u.tercihler || []).length), 5); 
         if(maxT === -Infinity || maxT < 5) maxT = 5; 
         if(maxT > 10) maxT = 10;
-        
-        let th = `<tr>
-            <th>ÖZLÜK</th><th>AD SOYAD</th><th>KENDİ PUANI</th><th>EŞ DURUMU</th><th>EŞ ÖZLÜK</th><th>EŞ ÜNVANI</th><th>EŞ PUANI</th><th>ESAS PUAN</th><th>SONUÇ</th>`;
+        let th = `<tr><th>ÖZLÜK</th><th>AD SOYAD</th><th>KENDİ PUANI</th><th>EŞ DURUMU</th><th>EŞ ÖZLÜK</th><th>EŞ ÜNVANI</th><th>EŞ PUANI</th><th>ESAS PUAN</th><th>SONUÇ</th>`;
         for(let i=1; i<=maxT; i++) th += `<th>TERCİH ${i}</th>`; th += `</tr>`;
         document.getElementById('rankHead').innerHTML = th;
-        
         let sorted = [...normalUsers].sort((a,b) => (b.esasPuan || 0) - (a.esasPuan || 0));
         document.getElementById('rankBody').innerHTML = sorted.map(u => {
             let rowStyle = currentUser && String(u.ozluk) === String(currentUser.ozluk) ? 'background:rgba(0,246,210,0.15); font-weight:bold;' : '';
-            let row = `<tr style="${rowStyle}">
-                <td>${u.ozluk}</td><td>${u.ad || ''}</td><td>${u.puan || 0}</td>
+            let row = `<tr style="${rowStyle}"><td>${u.ozluk}</td><td>${u.ad || ''}</td><td>${u.puan || 0}</td>
                 <td style="color:${u.esDurumu ? 'var(--accent)' : 'var(--muted)'}; font-weight:bold;">${u.esDurumu ? 'VAR' : 'YOK'}</td>
                 <td>${u.esDurumu ? (u.esOzluk || '-') : '-'}</td><td>${u.esDurumu ? (u.esUnvan || '-') : '-'}</td><td>${u.esDurumu ? (u.esPuan || 0) : '-'}</td>
                 <td style="color:var(--accent); font-weight:bold; font-size:1.1em;">${u.esasPuan || 0}</td>
@@ -604,7 +618,6 @@
         let sirali = [...users].filter(u => !isSuperAdmin(u.ozluk)).sort((a,b) => (b.esasPuan || 0) - (a.esasPuan || 0));
         units.forEach(u => u.kalan = u.kont);
         users.forEach(u => u.sonuc = isSuperAdmin(u.ozluk) ? "Yönetici" : "Yerleşemedi");
-        
         for(let u of sirali) {
             if(u.sonuc != "Yerleşemedi") continue;
             for(let t of (u.tercihler || [])) {
@@ -629,7 +642,6 @@
     function delUnit(i) { units.splice(i, 1); saveData(); runAtama(true); updateAdminData(); }
     function updUnit(i, f, v) { units[i][f] = v; saveData(); runAtama(true); updateAdminData(); }
 
-    // --- ADMİN DASHBOARD VE KULLANICI VERİTABANI GÜNCELLEME ---
     function updateAdminData() {
         let normalUsers = users.filter(u => !isSuperAdmin(u.ozluk));
         let yerlesenSayisi = normalUsers.filter(u => (u.sonuc || 'Yerleşemedi') !== 'Yerleşemedi').length;
@@ -642,21 +654,17 @@
 
         document.getElementById('adminUnitBody').innerHTML = units.map((u, i) => `<tr><td>${u.ad}</td><td><input type="number" class="admin-input" value="${u.kont}" onchange="updUnit(${i}, 'kont', parseInt(this.value)||0)" style="width:70px;"></td><td><button onclick="delUnit(${i})" class="btn-action btn-danger" style="padding:4px 10px;">X</button></td></tr>`).join('');
         
-        let th = `<tr>
-            <th>ÖZLÜK</th><th>AD SOYAD</th><th>KENDİ PUANI</th><th>EŞ DURUMU</th><th>EŞ ÖZLÜK</th><th>EŞ ÜNVANI</th><th>EŞ PUANI</th><th>ESAS PUAN</th><th>SONUÇ</th><th style="min-width:180px;">TERCİHLER</th><th>TELEFON</th><th>ŞİFRE</th><th>İŞLEM</th>
-        </tr>`;
+        let th = `<tr><th>ÖZLÜK</th><th>AD SOYAD</th><th>KENDİ PUANI</th><th>EŞ DURUMU</th><th>EŞ ÖZLÜK</th><th>EŞ ÜNVANI</th><th>EŞ PUANI</th><th>ESAS PUAN</th><th>SONUÇ</th><th style="min-width:180px;">TERCİHLER</th><th>TELEFON</th><th>ŞİFRE</th><th>İŞLEM</th></tr>`;
         document.getElementById('adminUserHead').innerHTML = th;
 
         document.getElementById('adminUserBody').innerHTML = users.map((u, i) => {
             let isAdmin = isSuperAdmin(u.ozluk);
             let rowStyle = isAdmin ? 'background: rgba(231, 76, 60, 0.15);' : '';
             let roleLabel = isAdmin ? `<br><small style="color:var(--error); font-weight:bold;">[YÖNETİCİ]</small>` : '';
-
             return `<tr style="${rowStyle}">
                 <td><b>${u.ozluk}</b>${roleLabel}</td>
                 <td><input class="admin-input" value="${u.ad || ''}" onchange="updUser(${i},'ad',this.value)" style="width:120px;"></td>
                 <td><input class="admin-input" type="number" step="0.01" value="${u.puan || 0}" onchange="updUser(${i},'puan',parseFloat(this.value)||0)" style="width:70px;" ${isAdmin ? 'disabled' : ''}></td>
-                
                 <td style="text-align:center;"><input type="checkbox" style="width:20px; height:20px; cursor:pointer;" ${u.esDurumu ? 'checked' : ''} onchange="updUser(${i},'esDurumu',this.checked)" ${isAdmin ? 'disabled' : ''}></td>
                 <td><input class="admin-input" value="${u.esOzluk || ''}" onchange="updUser(${i},'esOzluk',this.value)" style="width:70px;" ${isAdmin ? 'disabled' : ''}></td>
                 <td>
@@ -670,23 +678,24 @@
                     </select>
                 </td>
                 <td><input class="admin-input" type="number" step="0.01" value="${u.esPuan || 0}" onchange="updUser(${i},'esPuan',parseFloat(this.value)||0)" style="width:70px;" ${isAdmin ? 'disabled' : ''}></td>
-                
-                <td style="color:var(--accent); font-weight:bold;">${isAdmin ? '-' : (u.esasPuan || 0)}</td>
+                <!-- Yönetici esas puanı direkt düzenleyebilir -->
+                <td>${isAdmin ? 
+                    `<span style="color:var(--accent); font-weight:bold;">${u.esasPuan || 0}</span>` : 
+                    `<input class="admin-input" type="number" step="0.01" value="${u.esasPuan || 0}" onchange="updUser(${i},'esasPuan',parseFloat(this.value)||0)" style="width:80px; font-weight:bold; color:var(--accent);">`
+                }</td>
                 <td style="font-weight:bold; color:${(u.sonuc || 'Yerleşemedi') == 'Yerleşemedi' ? 'var(--error)' : (isAdmin ? 'var(--muted)' : 'var(--success)')};">${u.sonuc || 'Yerleşemedi'}</td>
-                
                 <td><input class="admin-input" placeholder="Virgülle ayırın" value="${isAdmin ? '' : (u.tercihler || []).join(', ')}" onchange="updPrefs(${i},this.value)" style="border:1px solid #3498db; background:rgba(52, 152, 219, 0.1);" ${isAdmin ? 'disabled' : ''}></td>
                 <td><input class="admin-input" value="${u.tel || ''}" onchange="updUser(${i},'tel',this.value)" style="width:100px;"></td>
                 <td><input class="admin-input" value="${u.sifre || ''}" onchange="updUser(${i},'sifre',this.value)" style="width:70px;"></td>
                 <td><button onclick="delUser(${i})" class="btn-action btn-danger" style="padding:5px 10px;">SİL</button></td>
             </tr>`;
         }).join('');
-        
         buildLiveRankTable();
     }
 
     function updUser(i, f, v) { 
         users[i][f] = v; 
-        users[i].esasPuan = calcEsasPuan(users[i]); 
+        if (f !== 'esasPuan') users[i].esasPuan = calcEsasPuan(users[i]); 
         saveData(); runAtama(true); updateAdminData(); 
     }
     
